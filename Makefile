@@ -15,6 +15,11 @@ superuser:
 shell:
 	$(MANAGE) shell
 
+init:
+	$(MANAGE) create_bank
+	$(MANAGE) create_fruits
+	$(MANAGE) create_users
+
 celery_worker:
 	celery -A my_fruit_shop worker --loglevel=info
 
