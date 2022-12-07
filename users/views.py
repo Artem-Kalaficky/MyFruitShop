@@ -7,21 +7,23 @@ from fruits.models import Fruit, Log
 from users.models import Message
 
 
-class TestView(LoginView):
-    template_name = 'users/index.html'
+class MainView(LoginView):
+    template_name = 'users/main_page.html'
+    room_name = 'shop'
 
-    def get_success_url(self):
-        return reverse_lazy('login')
+    def get_redirect_url(self):
+        return reverse_lazy('main')
 
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
         context['fruits'] = Fruit.objects.all()
-        context['messages'] = Message.objects.all()
+        context['messages'] = Message.objects.all()[:40][::-1]
         context['bank'] = Bank.objects.first()
         context['logs'] = Log.objects.all()
-        return self.render_to_response(context)
+        context['room_name'] = self.room_name
+        return context
 
 
 class UserLogoutView(LoginRequiredMixin, LogoutView):
-    template_name = 'users/index.html'
-    next_page = reverse_lazy('login')
+    template_name = 'users/main_page.html'
+    next_page = reverse_lazy('main')

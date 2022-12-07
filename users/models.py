@@ -5,7 +5,7 @@ from django.db import models
 
 
 class Message(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name='Пользователь')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Пользователь')
     text = models.CharField(max_length=100, verbose_name='Текст')
     date = models.DateTimeField(default=datetime.datetime.now(), verbose_name='Дата')
 
@@ -15,4 +15,4 @@ class Message(models.Model):
     class Meta:
         verbose_name = 'Сообщение'
         verbose_name_plural = 'Сообщения'
-        ordering = ['date']
+        ordering = ['-date']

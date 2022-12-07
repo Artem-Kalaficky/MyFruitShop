@@ -37,6 +37,7 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     'users.apps.UsersConfig',
     'fruits.apps.FruitsConfig',
     'bank.apps.BankConfig',
@@ -78,6 +79,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'my_fruit_shop.wsgi.application'
 
+ASGI_APPLICATION = "my_fruit_shop.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [(env('REDIS_HOST'), 6379)],
+        },
+    },
+}
+
 
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
@@ -114,8 +125,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-CELERY_BROKER_URL = "redis://redis:6379/0"
-CELERY_RESULT_BACKEND = "redis://redis:6379/0"
+CELERY_BROKER_URL = f"redis://{env('REDIS_HOST')}:6379/0"
+CELERY_RESULT_BACKEND = f"redis://{env('REDIS_HOST')}:6379/0"
 
 
 # Internationalization
