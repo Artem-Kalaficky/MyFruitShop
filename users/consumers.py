@@ -28,9 +28,7 @@ class ChatConsumer(WebsocketConsumer):
     def receive(self, text_data=None, bytes_data=None):
         text_data_json = json.loads(text_data)
         user = User.objects.get(pk=text_data_json["user"])
-        message = text_data_json["message"]
-        date = datetime.datetime.now()
-        new_message = Message.objects.create(user=user, text=message, date=date)
+        new_message = Message.objects.create(user=user, text=text_data_json["message"], date=datetime.datetime.now())
         async_to_sync(self.channel_layer.group_send)(
             self.room_group_name,
             {

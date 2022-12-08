@@ -15,7 +15,8 @@ channels-redis==4.0.0
 redis==4.4.0
 celery==5.2.7
 
-
+# another
+httpx==0.23.1
 
 # deploy
 gunicorn==20.1.0

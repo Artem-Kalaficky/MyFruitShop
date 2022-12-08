@@ -211,7 +211,6 @@ scratch. This page gets rid of all links and provides the needed markup only.
 
 
 <script>
-    const roomName = '{{ room_name }}'
     // chat variables
     const chatSocket = new WebSocket('ws://' + window.location.host + '/ws/my-fruit-shop/chat/')
     const chatArea = $('#chat')
@@ -250,10 +249,12 @@ scratch. This page gets rid of all links and provides the needed markup only.
 
     messageSubmit.click(function() {
         {% if user.is_authenticated %}
-            chatSocket.send(JSON.stringify({
-                'user': '{{ user.id }}',
-                'message': messageInput.val()
-            }));
+            if ((messageInput.val()) && !(messageInput.val().match(/^[ ]+$/))) {
+                chatSocket.send(JSON.stringify({
+                    'user': '{{ user.id }}',
+                    'message': messageInput.val()
+                }));
+            }
         {% else %}
             toastr.warning('Учетные данные не были предоставлены.', 'Не авторизирован')
         {% endif %}
@@ -274,10 +275,6 @@ scratch. This page gets rid of all links and provides the needed markup only.
             toastr.warning('Учетные данные не были предоставлены.', 'Не авторизирован')
         {% endif %}
     })
-
-
-
-
 </script>
 </body>
 </html>

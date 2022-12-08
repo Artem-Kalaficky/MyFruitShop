@@ -8,8 +8,8 @@ class Command(BaseCommand):
     help = 'Create users'
 
     def handle(self, *args, **kwargs):
-        if settings.DEBUG and not User.objects.all().exists():
-            users = [('admin', 'Иван'), ('yulia', 'Юлия'), ('ashot', 'Ашот')]
+        if not settings.DEBUG and not User.objects.all().exists():
+            users = [('admin', 'Иван'), ('jester', 'Шутник'), ('ashot', 'Ашот')]
             for user in users:
                 user = User.objects.create(username=user[0], first_name=user[1], is_staff=True, is_superuser=True)
                 user.set_password('Zaqwerty123')

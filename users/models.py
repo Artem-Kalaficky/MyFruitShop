@@ -6,7 +6,7 @@ from django.db import models
 
 class Message(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Пользователь')
-    text = models.CharField(max_length=100, verbose_name='Текст')
+    text = models.TextField(verbose_name='Текст')
     date = models.DateTimeField(default=datetime.datetime.now(), verbose_name='Дата')
 
     def __str__(self):
