@@ -35,6 +35,10 @@ scratch. This page gets rid of all links and provides the needed markup only.
           margin-left: auto;
           margin-right: auto;
         }
+
+      .error-amount {
+          border-color: red;
+      }
   </style>
 </head>
 <body class="hold-transition sidebar-mini">
@@ -136,7 +140,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
                             <tbody>
                                 <tr>
                                     <td style="width: 50%">Банковский счёт:</td>
-                                    <td style="width: 50%"><span style="font-weight: bold; font-size: 20px; color: orange">{{ bank.amount }} USD</span></td>
+                                    <td style="width: 50%"><span id="bank-amount" style="font-weight: bold; font-size: 20px; color: orange">{{ bank.amount }}</span> <span style="font-weight: bold; font-size: 20px; color: orange">USD</span></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -157,11 +161,11 @@ scratch. This page gets rid of all links and provides the needed markup only.
 
                         <div class="row" style="padding-bottom: 10px; padding-top: 30px">
                             <div class="col-xl-6" style="padding-bottom: 10px">
-                                <input type="number" class="form-control" placeholder="Сумма">
+                                <input id="bank-account-input" type="number" class="form-control" placeholder="Сумма">
                             </div>
                             <div class="col-xl-6" style="text-align: center">
-                                <input type="button" class="btn top-up" style="width: 120px; display: inline-block; background-color: lightgreen" value="Пополнить">
-                                <input type="button" class="btn withdraw" style="width: 120px; display: inline-block; background-color: #ffe3ae" value="Вывести">
+                                <input id="top-up-account" type="button" class="btn" style="width: 120px; display: inline-block; background-color: lightgreen" value="Пополнить">
+                                <input id="withdraw-account" type="button" class="btn" style="width: 120px; display: inline-block; background-color: #ffe3ae" value="Вывести">
                             </div>
                         </div>
 
@@ -216,6 +220,12 @@ scratch. This page gets rid of all links and provides the needed markup only.
     const chatArea = $('#chat')
     const messageInput = $('#chat-message-input')
     const messageSubmit = $('#chat-message-submit')
+    // bank variables
+    const bankSocket = new WebSocket('ws://' + window.location.host + '/ws/my-fruit-shop/bank/')
+    const bankAmount = $('#bank-amount')
+    const bankAmountInput = $('#bank-account-input')
+    const accountTopUp = $('#top-up-account')
+    const accountWithdraw = $('#withdraw-account')
 
 
     $(document).ready(function(){
@@ -263,6 +273,63 @@ scratch. This page gets rid of all links and provides the needed markup only.
     // End Chat Region =================================================================================================
 
 
+    // Bank Region =====================================================================================================
+    function updateBankAccount(amount, withdraw) {
+        $.ajax({
+            url: '{% url "update_bank_account" %}',
+            type: 'GET',
+            data: {
+                'amount': amount,
+                'withdraw': withdraw
+            },
+            success: (data) => {},
+            error: (data) => {}
+        })
+    }
+
+    accountTopUp.click(function () {
+        {% if user.is_authenticated %}
+            const amount = +bankAmountInput.val()
+            if (amount <= 0 || !amount) {
+                bankAmountInput.addClass('error-amount')
+                toastr.error('Введённое значение некорректно.', 'Ошибка')
+                setTimeout(function () {bankAmountInput.removeClass('error-amount')}, 5000)
+            } else {
+                updateBankAccount(amount)
+            }
+            bankAmountInput.val('')
+        {% else %}
+            toastr.warning('Учетные данные не были предоставлены.', 'Не авторизирован')
+        {% endif %}
+        bankAmountInput.val('')
+    })
+
+    accountWithdraw.click(function () {
+        {% if user.is_authenticated %}
+            const amount = +bankAmountInput.val()
+            if (amount <= 0 || !amount || amount > +bankAmount.text()) {
+                bankAmountInput.addClass('error-amount')
+                toastr.error('Введённое значение некорректно.', 'Ошибка')
+                setTimeout(function () {bankAmountInput.removeClass('error-amount')}, 5000)
+            } else {
+                updateBankAccount(amount, withdraw=true)
+            }
+            bankAmountInput.val('')
+        {% else %}
+            toastr.warning('Учетные данные не были предоставлены.', 'Не авторизирован')
+        {% endif %}
+        bankAmountInput.val('')
+    })
+
+    bankSocket.onclose = function(e) {
+        console.error('Bank socket closed unexpectedly')
+    };
+
+    bankSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data)
+        bankAmount.html(data.amount)
+    };
+    // End Bank Region =================================================================================================
 
 
 
