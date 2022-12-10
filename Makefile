@@ -24,4 +24,7 @@ celery_worker:
 	celery -A my_fruit_shop worker --loglevel=info
 
 celery_beat:
-	celery -A my_fruit_shop beat
+	celery -A my_fruit_shop beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
+celery_flower:
+	 celery -A my_fruit_shop flower --port=5566

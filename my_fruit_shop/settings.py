@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -127,6 +128,16 @@ AUTH_PASSWORD_VALIDATORS = [
 
 CELERY_BROKER_URL = f"redis://{env('REDIS_HOST')}:6379/0"
 CELERY_RESULT_BACKEND = f"redis://{env('REDIS_HOST')}:6379/0"
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://{env('REDIS_HOST')}:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    }
+}
 
 
 # Internationalization

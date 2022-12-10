@@ -4,12 +4,14 @@ import channels.layers
 import httpx
 import translators as ts # noqa
 from asgiref.sync import async_to_sync # noqa
+from django.core.cache import cache
 
 from my_fruit_shop.celery import app
 
 
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
+    cache.clear()
     sender.add_periodic_task(90, task_jester.s(), name='generate_joke')
 
 

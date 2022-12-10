@@ -72,7 +72,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
             <h2 style="padding: 5px; margin-left: 10px; display: inline-block" class="title title-size">My Fruit Shop</h2>
             <span style="float: right; padding-right: 15px">
                 <span style="padding-right: 10px; font-size: 18px">{{ user.username }}</span>
-                <a href="{% url 'logout' %}" class="btn" style="min-width: 150px; margin-top: 6px; background-color: #ffa382">Выйти</a>
+                <a href="{% url 'logout' %}" class="btn" style="min-width: 130px; margin-top: 6px; background-color: #ffa382">Выйти</a>
             </span>
         {% endif %}
     </div>
@@ -147,13 +147,13 @@ scratch. This page gets rid of all links and provides the needed markup only.
 
                         <div class="row" style="padding-top: 30px">
                             <div class="col-xl-6">
-                                <input type="button" class="btn btn-block audit" value="Провести бухгалтерский аудит" style="background-color: #f6a2bf">
+                                <input id="start-audit" type="button" class="btn btn-block audit" value="Провести бухгалтерский аудит" style="background-color: #f6a2bf">
                             </div>
                             <div class="col-xl-6" style="padding-top: 10px">
                                 <div class="progress">
-                                  <div class="progress-bar progress-bar-success" role="progressbar" aria-valuenow="40"
-                                  aria-valuemin="0" aria-valuemax="100" style="width:97%; background-color: #f6a2bf; border-radius: 10px">
-                                    <span style="font-weight: bold">97%</span>
+                                  <div id="audit-progress-bar" class="progress-bar progress-bar-success" role="progressbar" aria-valuenow="40"
+                                  aria-valuemin="0" aria-valuemax="100" style="width: 0%; background-color: #f6a2bf; border-radius: 10px">
+                                    <span id="audit-bar" style="font-weight: bold"></span>
                                   </div>
                                 </div>
                             </div>
@@ -171,10 +171,11 @@ scratch. This page gets rid of all links and provides the needed markup only.
 
                         <div class="row" style="padding-top: 10px">
                             <div class="col-xl-6">
-                                <input type="button" class="btn btn-block upload" style="background-color: cornflowerblue" value="Загрузить декларацию">
+                                <label for="declaration-input" id="declaration_label" class="btn btn-block" style="background-color: cornflowerblue" title="Файл не выбран">Загрузить декларацию</label>
+                                <input id="declaration-input" type="{% if user.is_authenticated %}file{% else %}button{% endif %}" value="Загрузить декларацию" hidden>
                             </div>
                             <div class="col-xl-6 text-center" style="padding-top: 5px">
-                                Сегодня загружено: <span>2 шт.</span>
+                                Сегодня загружено: <span>{{ count_docs }}</span> шт.
                             </div>
                         </div>
                     </div>
@@ -215,6 +216,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
 
 
 <script>
+    const userId = '{{ user.id }}'
     // chat variables
     const chatSocket = new WebSocket('ws://' + window.location.host + '/ws/my-fruit-shop/chat/')
     const chatArea = $('#chat')
@@ -222,10 +224,14 @@ scratch. This page gets rid of all links and provides the needed markup only.
     const messageSubmit = $('#chat-message-submit')
     // bank variables
     const bankSocket = new WebSocket('ws://' + window.location.host + '/ws/my-fruit-shop/bank/')
+    const auditSocket = new WebSocket('ws://' + window.location.host + '/ws/my-fruit-shop/' + userId + '/')
     const bankAmount = $('#bank-amount')
     const bankAmountInput = $('#bank-account-input')
     const accountTopUp = $('#top-up-account')
     const accountWithdraw = $('#withdraw-account')
+    const startAudit = $('#start-audit')
+    const auditProgressBar = $('#audit-progress-bar')
+    const auditBar = $('#audit-bar')
 
 
     $(document).ready(function(){
@@ -329,6 +335,43 @@ scratch. This page gets rid of all links and provides the needed markup only.
         const data = JSON.parse(e.data)
         bankAmount.html(data.amount)
     };
+
+    startAudit.click(function () {
+        {% if user.is_authenticated %}
+            startAjaxAudit()
+        {% else %}
+            toastr.warning('Учетные данные не были предоставлены.', 'Не авторизирован')
+        {% endif %}
+    })
+
+    function startAjaxAudit() {
+        $.ajax({
+            url: '{% url "start_audit" %}',
+            type: 'GET',
+            data: {
+                'userId': userId,
+            },
+            success: (data) => {
+                console.log('ok')
+            },
+            error: (data) => {
+                toastr.warning('Бухгалтерский аудит уже в процессе выполнения.', 'Внимание')
+            }
+        })
+    }
+
+    auditSocket.onclose = function(e) {
+        console.error('Audit socket closed unexpectedly')
+    };
+
+    auditSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data)
+        auditBar.html(data.progress + '%')
+        auditProgressBar.css('width', data.progress + '%')
+        if (+data.progress === 100) {
+            toastr.success('Бухгалтерский аудит успешно проведен.', 'Успех')
+        }
+    };
     // End Bank Region =================================================================================================
 
 
@@ -337,7 +380,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
         toastr.error('Введённые учётные данные неверные.', 'Ошибка')
     {% endif %}
 
-    $('.buy, .sell, .top-up, .withdraw, .upload, .audit').click(function () {
+    $('.buy, .sell, .upload, #declaration_label').click(function () {
         {% if not user.is_authenticated %}
             toastr.warning('Учетные данные не были предоставлены.', 'Не авторизирован')
         {% endif %}
