@@ -10,8 +10,8 @@ channel_layer = channels.layers.get_channel_layer()
 @app.task(bind=True)
 def task_check_warehouse(self, user_id):
     for i in range(1, 26):
+        math_operations = [9999999**99999 for x in range(3)]
         current = i * 4
-        operations = [9999999**99999 for x in range(3)]
         self.update_state(state='PROGRESS', meta={'current': current, 'total': 100})
 
         async_to_sync(channel_layer.group_send)(

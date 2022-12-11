@@ -1,16 +1,19 @@
+import datetime
+
 import channels.layers
 from asgiref.sync import async_to_sync # noqa
 from django.core.cache import cache
 from django.http import JsonResponse
 
-from bank.models import Bank
+from bank.models import Bank, Declaration
 from bank.tasks import task_check_warehouse
+
+
 
 
 def update_bank_account(request):
     channel_layer = channels.layers.get_channel_layer()
-
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and request.method == 'GET':
+    if request.is_ajax() and request.method == 'GET':
         bank = Bank.objects.first()
         if not request.GET.get('withdraw'):
             bank.amount += int(float(request.GET.get('amount')))
@@ -37,3 +40,23 @@ def start_audit(request):
             task_check_warehouse.delay(user_id)
             return JsonResponse({}, status=200)
         return JsonResponse({}, status=400)
+
+
+def upload_declaration(request):
+    channel_layer = channels.layers.get_channel_layer()
+    if request.is_ajax() and request.method == 'POST':
+        Declaration.objects.create(file=request.FILES.get('file'), date=datetime.datetime.now())
+
+        date = datetime.datetime.now()
+        async_to_sync(channel_layer.group_send)(
+            'shop_declaration',
+            {
+                "type": "upload.declaration",
+                "count_docs": len(Declaration.objects.filter(
+                    date__day=date.strftime('%d'),
+                    date__month=date.strftime('%m'),
+                    date__year=date.strftime('%Y'),
+                ))
+            }
+        )
+        return JsonResponse({}, status=200)

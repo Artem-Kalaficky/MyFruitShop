@@ -171,11 +171,11 @@ scratch. This page gets rid of all links and provides the needed markup only.
 
                         <div class="row" style="padding-top: 10px">
                             <div class="col-xl-6">
-                                <label for="declaration-input" id="declaration_label" class="btn btn-block" style="background-color: cornflowerblue" title="Файл не выбран">Загрузить декларацию</label>
+                                <label for="declaration-input" id="declaration_label" class="btn btn-block" style="background-color: cornflowerblue; font-weight: normal" title="Файл не выбран">Загрузить декларацию</label>
                                 <input id="declaration-input" type="{% if user.is_authenticated %}file{% else %}button{% endif %}" value="Загрузить декларацию" hidden>
                             </div>
                             <div class="col-xl-6 text-center" style="padding-top: 5px">
-                                Сегодня загружено: <span>{{ count_docs }}</span> шт.
+                                Сегодня загружено: <span id="count-declarations">{{ count_docs }}</span> шт.
                             </div>
                         </div>
                     </div>
@@ -213,6 +213,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
 <!-- AdminLTE App -->
 <script src="{% static 'users/dist/js/adminlte.min.js' %}"></script>
 <script src="{% static 'users/dist/js/toastr.min.js' %}"></script>
+<script src="{% static '/bank/scripts/get_csrf_token.js' %}"></script>
 
 
 <script>
@@ -225,13 +226,20 @@ scratch. This page gets rid of all links and provides the needed markup only.
     // bank variables
     const bankSocket = new WebSocket('ws://' + window.location.host + '/ws/my-fruit-shop/bank/')
     const auditSocket = new WebSocket('ws://' + window.location.host + '/ws/my-fruit-shop/' + userId + '/')
+    const declarationSocket = new WebSocket('ws://' + window.location.host + '/ws/my-fruit-shop/declaration/')
+
     const bankAmount = $('#bank-amount')
     const bankAmountInput = $('#bank-account-input')
     const accountTopUp = $('#top-up-account')
     const accountWithdraw = $('#withdraw-account')
+
     const startAudit = $('#start-audit')
     const auditProgressBar = $('#audit-progress-bar')
     const auditBar = $('#audit-bar')
+
+    const declarationInput = $('#declaration-input')
+    const declarationLabel = $('#declaration_label')
+    const declarationCount = $('#count-declarations')
 
 
     $(document).ready(function(){
@@ -336,6 +344,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
         bankAmount.html(data.amount)
     };
 
+    // audit
     startAudit.click(function () {
         {% if user.is_authenticated %}
             startAjaxAudit()
@@ -371,6 +380,54 @@ scratch. This page gets rid of all links and provides the needed markup only.
         if (+data.progress === 100) {
             toastr.success('Бухгалтерский аудит успешно проведен.', 'Успех')
         }
+    };
+
+    // declarations
+    declarationInput.change(function() {
+      let file = this.files[0]
+      if (file) {
+          if ((file.size / 1000000) > 1) {
+              toastr.warning('Размер файла не должен превышать 20МБ', 'Внимание')
+              return
+          }
+          declarationLabel.attr('title', file.name)
+          uploadDeclaration(file)
+      } else {
+          declarationLabel.attr('title', "Файл не выбран")
+      }
+    });
+
+    function uploadDeclaration(file) {
+        let format_data = new FormData()
+        format_data.append('file', file)
+        $.ajax({
+            url: '{% url "upload_declaration" %}',
+            type: 'POST',
+            enctype: 'multipart/form-data',
+            data: format_data,
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+                "X-CSRFToken": getCookie("csrftoken"),
+            },
+            success: (data) => {
+                declarationLabel.attr('title', 'Файл не выбран')
+                toastr.success('Декларация успешно загружена', 'Успех')
+            },
+            error: (error) => {},
+            cache: false,
+            contentType: false,
+            processData: false,
+        })
+    }
+
+    declarationSocket.onclose = function(e) {
+        console.error('Declaration socket closed unexpectedly')
+    };
+
+    declarationSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data)
+        console.log(data)
+        declarationCount.html(data.count_docs)
     };
     // End Bank Region =================================================================================================
 
