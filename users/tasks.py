@@ -5,6 +5,7 @@ import httpx
 import translators as ts # noqa
 from asgiref.sync import async_to_sync # noqa
 from django.core.cache import cache
+from django_celery_beat.models import IntervalSchedule, PeriodicTasks, PeriodicTask
 
 from my_fruit_shop.celery import app
 
@@ -38,4 +39,14 @@ def task_jester():
             "date": joke_message.date.strftime('%H:%M')
         }
     )
+
+    schedule, created = IntervalSchedule.objects.get_or_create(
+        every=len(translated_joke),
+        period=IntervalSchedule.SECONDS,
+    )
+    task = PeriodicTask.objects.get(task='users.tasks.task_jester')
+    task.interval = schedule
+    task.save()
+    PeriodicTasks.changed(task)
+
     return translated_joke

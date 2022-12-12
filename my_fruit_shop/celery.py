@@ -9,4 +9,4 @@ app = Celery("my_fruit_shop", broker='redis://localhost')
 
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
-app.autodiscover_tasks(['users', 'bank'])
+app.autodiscover_tasks(['users', 'bank', 'fruits'])

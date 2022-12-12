@@ -11,7 +11,6 @@ class BankConsumer(WebsocketConsumer):
     def connect(self):
         self.room_name = "bank"
         self.room_group_name = f"shop_{self.room_name}"
-        print(self.room_group_name)
         async_to_sync(self.channel_layer.group_add)(
             self.room_group_name, self.channel_name
         )
@@ -40,7 +39,6 @@ class AuditConsumer(WebsocketConsumer):
     def connect(self):
         self.room_name = f'audit_{self.scope["url_route"]["kwargs"]["room_name"]}'
         self.room_group_name = f"shop_{self.room_name}"
-        print(self.room_group_name)
         async_to_sync(self.channel_layer.group_add)(
             self.room_group_name, self.channel_name
         )

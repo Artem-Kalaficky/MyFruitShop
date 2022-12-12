@@ -1,7 +1,7 @@
 import datetime
 import json
 
-from asgiref.sync import async_to_sync
+from asgiref.sync import async_to_sync # noqa
 from channels.generic.websocket import WebsocketConsumer
 from django.contrib.auth.models import User
 

@@ -98,13 +98,21 @@ scratch. This page gets rid of all links and provides the needed markup only.
                         {% for fruit in fruits %}
                         <tr>
                             <td>{{ fruit.name }}</td>
-                            <td>{{ fruit.amount }}</td>
+                            <td><span id="fruit-amount-{{ fruit.id }}">{{ fruit.amount }}</span></td>
                             <td style="padding: 5px">
-                                <input type="number" class="form-control" style="width: 120px; display: inline-block; padding-top: 1px" placeholder="Кол-во">
-                                <input type="button" class="btn buy" style="width: 120px; display: inline-block; background-color: lightgreen" value="Купить">
-                                <input type="button" class="btn sell" style="width: 120px; display: inline-block; background-color: #ffe3ae" value="Продать">
+                                <input id="fruit-input-{{ fruit.id }}" type="number" class="form-control" style="width: 120px; display: inline-block; padding-top: 1px" placeholder="Кол-во">
+                                <button onclick="buyFruit(this.value)" type="button" class="btn buy" style="width: 120px; display: inline-block; background-color: lightgreen" value="{{ fruit.id }}">Купить</button>
+                                <button onclick="sellFruit(this.value)" type="button" class="btn sell" style="width: 120px; display: inline-block; background-color: #ffe3ae" value="{{ fruit.id }}">Продать</button>
                             </td>
-                            <td>10.12.2022 12:34 - куплен товар "{{ fruit.name }}"(количество: 5) за 120 USD</td>
+                            <td>
+                                <span id="operation-fruit-{{ fruit.id }}">
+                                    {% if fruit.last_success_log %}
+                                        {{ fruit.last_success_log.date|date:"d.m.Y H:i" }} - {% if fruit.last_success_log.operation == 'B' %}куплен{% else %}продан{% endif %} товар "{{ fruit.name }}"(количество: {{ fruit.last_success_log.amount }}) за {{ fruit.last_success_log.usd }} USD
+                                    {% else %}
+                                        Последние операции отсутствуют
+                                    {% endif %}
+                                </span>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -185,15 +193,24 @@ scratch. This page gets rid of all links and provides the needed markup only.
         </div>
 
         <!-- Logs -->
-        <div class="col-xl-4 col-md-4" style="padding-bottom: 30px">
-            <div style="height: 100%; overflow-y: scroll; border: black solid 1px; padding: 15px">
+        <div class="col-xl-4 col-md-4">
+            <div id="logs-area" style="height: 100%; max-height: 739px; overflow-y: scroll; border: black solid 1px; padding: 15px">
                 {% for log in logs %}
                     <p style="margin: 0; color: {% if log.status == 'SS' %}green{% else %}red{% endif %}">
-                        {{ log.date|date:"d.m.Y H:i" }} - {{ log.get_status_display }}: Поставщик привёз товар "{{ log.fruit.name }}"(количество: {{ log.amount }}).
-                        {% if log.status == 'SS' %}
-                            Со счёта списано {{ log.usd }} USD, покупка завершена.
+                        {% if log.operation == 'B' %}
+                            {{ log.date|date:"d.m.Y H:i" }} - {{ log.get_status_display }}: Поставщик привёз товар "{{ log.fruit.name }}"(количество: {{ log.amount }}).
+                            {% if log.status == 'SS' %}
+                                Со счёта списано {{ log.usd }} USD, покупка завершена.
+                            {% else %}
+                                Недостаточно средств на счету, закупка отменена.
+                            {% endif %}
                         {% else %}
-                            Недостаточно средств на счету, закупка отменена
+                            {{ log.date|date:"d.m.Y H:i" }} - {{ log.get_status_display }}: Продажа товара "{{ log.fruit.name }}"(количество: {{ log.amount }}).
+                            {% if log.status == 'SS' %}
+                                К счёту добавлено {{ log.usd }} USD, продажа успешна.
+                            {% else %}
+                                Недостаточно товара на складе, продажа отменена.
+                            {% endif %}
                         {% endif %}
                     </p>
                 {% endfor %}
@@ -240,10 +257,14 @@ scratch. This page gets rid of all links and provides the needed markup only.
     const declarationInput = $('#declaration-input')
     const declarationLabel = $('#declaration_label')
     const declarationCount = $('#count-declarations')
+    // fruit and logs variables
+    const fruitSocket = new WebSocket('ws://' + window.location.host + '/ws/my-fruit-shop/fruit/')
+    const logsArea = $('#logs-area')
 
 
     $(document).ready(function(){
         chatScrollToBottom()
+        logsScrollToBottom()
     });
 
 
@@ -432,12 +453,132 @@ scratch. This page gets rid of all links and provides the needed markup only.
     // End Bank Region =================================================================================================
 
 
+    // Fruit Region ====================================================================================================
+    function logsScrollToBottom() {
+        logsArea.scrollTop(chatArea[0].scrollHeight)
+    }
+
+    function buyFruit(fruit_id) {
+        let fruitInput = $('#fruit-input-' + fruit_id)
+        {% if user.is_authenticated %}
+            if (fruitInput.val() > 0) {
+                ajaxBuyFruit(fruit_id, +fruitInput.val())
+            } else {
+                fruitInput.addClass('error-amount')
+                toastr.error('Введённое значение некорректно.', 'Ошибка')
+                setTimeout(function () {fruitInput.removeClass('error-amount')}, 5000)
+            }
+        {% else %}
+            toastr.warning('Учетные данные не были предоставлены.', 'Не авторизирован')
+        {% endif %}
+        fruitInput.val('')
+    }
+
+    function sellFruit(fruit_id) {
+        let fruitInput = $('#fruit-input-' + fruit_id)
+        {% if user.is_authenticated %}
+            if (fruitInput.val() > 0) {
+                ajaxSellFruit(fruit_id, +fruitInput.val())
+            } else {
+                fruitInput.addClass('error-amount')
+                toastr.error('Введённое значение некорректно или недостаточно товара на складе', 'Ошибка')
+                setTimeout(function () {fruitInput.removeClass('error-amount')}, 5000)
+            }
+        {% else %}
+            toastr.warning('Учетные данные не были предоставлены.', 'Не авторизирован')
+        {% endif %}
+        fruitInput.val('')
+    }
+
+    function ajaxBuyFruit(fruit_id, amount) {
+        $.ajax({
+            url: '{% url "buy_or_sell_fruits" %}',
+            type: 'GET',
+            data: {
+                'type': 'buy',
+                'fruit_id': fruit_id,
+                'amount': amount
+            },
+            success: (data) => {
+                toastr.success(data.message, 'Успех')
+            },
+            error: (data) => {
+                toastr.error('Недостаточно средств на счету, закупка отменена.', 'Ошибка')
+            }
+        })
+    }
+
+    function ajaxSellFruit(fruit_id, amount) {
+        $.ajax({
+            url: '{% url "buy_or_sell_fruits" %}',
+            type: 'GET',
+            data: {
+                'type': 'sell',
+                'fruit_id': fruit_id,
+                'amount': amount
+            },
+            success: (data) => {
+                toastr.success('Продажа успешна', 'Успех')
+            },
+            error: (data) => {
+                toastr.error('Недостаточно товара на складе, продажа отменена.', 'Ошибка')
+            }
+        })
+    }
+
+    fruitSocket.onclose = function(e) {
+        console.error('Fruit socket closed unexpectedly')
+    };
+
+    fruitSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data)
+        if (data.status === "ERROR") {
+            appendErrorLog(data)
+        } else {
+            appendSuccessLog(data)
+        }
+        logsScrollToBottom()
+    };
+
+    function appendErrorLog(data) {
+        if (data.operation === 'BUY') {
+            logsArea.append(
+                '<p style="margin: 0; color: red">' + data.date + ' - ' + data.status + ': Поставщик привёз товар "' + data.fruit_name + '"(количество: ' + data.amount + '). Недостаточно средств на счету, закупка отменена.</p>'
+            )
+        } else {
+            logsArea.append(
+                '<p style="margin: 0; color: red">' + data.date + ' - ' + data.status + ': Продажа товара "' + data.fruit_name + '"(количество: ' + data.amount + '). Недостаточно средств на счету, закупка отменена.</p>'
+            )
+        }
+    }
+
+    function appendSuccessLog(data) {
+        let fruitAmount = $('#fruit-amount-' + data.fruit_id)
+        if (data.operation === 'BUY') {
+            logsArea.append(
+                '<p style="margin: 0; color: green">' + data.date + ' - ' + data.status + ': Поставщик привёз товар "' + data.fruit_name + '"(количество: ' + data.amount + '). Со счёта списано ' + data.usd + ' USD, покупка завершена.</p>'
+            )
+            $('#operation-fruit-' + data.fruit_id).html(
+                '' + data.date + ' - куплен товар "' + data.fruit_name + '"(количество: ' + data.amount + ') за ' + data.usd + ' USD'
+            )
+            fruitAmount.html(+fruitAmount.text() + data.amount)
+        } else {
+            logsArea.append(
+                '<p style="margin: 0; color: green">' + data.date + ' - ' + data.status + ': Продажа товара "' + data.fruit_name + '"(количество: ' + data.amount + '). К счёту добавлено ' + data.usd + ' USD, продажа успешна.</p>'
+            )
+            $('#operation-fruit-' + data.fruit_id).html(
+                '' + data.date + ' - продан товар "' + data.fruit_name + '"(количество: ' + data.amount + ') за ' + data.usd + ' USD'
+            )
+            fruitAmount.html(+fruitAmount.text() - data.amount)
+        }
+    }
+    // End Fruit Region ================================================================================================
 
     {% if form.errors %}
         toastr.error('Введённые учётные данные неверные.', 'Ошибка')
     {% endif %}
 
-    $('.buy, .sell, .upload, #declaration_label').click(function () {
+    $('#declaration_label').click(function () {
         {% if not user.is_authenticated %}
             toastr.warning('Учетные данные не были предоставлены.', 'Не авторизирован')
         {% endif %}
@@ -445,4 +586,3 @@ scratch. This page gets rid of all links and provides the needed markup only.
 </script>
 </body>
 </html>
-

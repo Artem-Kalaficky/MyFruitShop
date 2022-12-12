@@ -8,11 +8,10 @@ from django.http import JsonResponse
 from bank.models import Bank, Declaration
 from bank.tasks import task_check_warehouse
 
-
+channel_layer = channels.layers.get_channel_layer()
 
 
 def update_bank_account(request):
-    channel_layer = channels.layers.get_channel_layer()
     if request.is_ajax() and request.method == 'GET':
         bank = Bank.objects.first()
         if not request.GET.get('withdraw'):
@@ -43,7 +42,6 @@ def start_audit(request):
 
 
 def upload_declaration(request):
-    channel_layer = channels.layers.get_channel_layer()
     if request.is_ajax() and request.method == 'POST':
         Declaration.objects.create(file=request.FILES.get('file'), date=datetime.datetime.now())
 
